@@ -1,0 +1,10 @@
+
+in_image: 'trainingdata_v0.4/hcp_{subjid}_hemi-{hemi}_img.nii.gz'
+
+#out_resolution: '64x128x64'
+out_resolution: '128x256x128'
+
+task: Task100_hcp1200hippT2w #must be Task###_name where ### is >= 100
+trainer: nnUNetTrainerV2
+architecture: 3d_fullres
+checkpoint: model_best
