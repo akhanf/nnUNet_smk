@@ -24,7 +24,7 @@ print(f'number of training subjects: {len(training_subjids)}')
 print(f'number of test subjects: {len(testing_subjids)}')
 
 
-localrules: all,resample_training_img,resample_training_lbl,plan_preprocess,create_dataset_json
+localrules: resample_training_img,resample_training_lbl,plan_preprocess,create_dataset_json
 
 rule all_predict:
     input:
@@ -42,6 +42,8 @@ rule resample_training_img:
     params:
         resample_res = config['out_resolution']
     output: 'raw_data/nnUNet_raw_data/{task}/imagesTr/hcp_{subjid}{hemi}_0000.nii.gz'
+    threads: 32 #to make it serial on a node
+    group: 'preproc'
     shell: 'c3d  {input} -resample 64x128x64 -o {output}'
 
 rule resample_testing_img:
@@ -49,6 +51,8 @@ rule resample_testing_img:
     params:
         resample_res = config['out_resolution']
     output: 'raw_data/nnUNet_raw_data/{task}/imagesTs/hcp_{subjid}{hemi}_0000.nii.gz'
+    group: 'preproc'
+    threads: 32 #to make it serial on a node
     shell: 'c3d  {input} -resample 64x128x64 -o {output}'
 
 
@@ -57,6 +61,8 @@ rule resample_training_lbl:
     params:
         resample_res = config['out_resolution']
     output: 'raw_data/nnUNet_raw_data/{task}/labelsTr/hcp_{subjid}{hemi}.nii.gz'
+    group: 'preproc'
+    threads: 32 #to make it serial on a node
     shell: 'c3d {input} -interpolation NearestNeighbor -resample 64x128x64 -o {output}'
 
 
@@ -69,6 +75,7 @@ rule create_dataset_json:
         training_imgs_nosuffix = expand('raw_data/nnUNet_raw_data/{task}/imagesTr/hcp_{subjid}{hemi}.nii.gz',subjid=training_subjids, hemi=hemis, allow_missing=True),
     output: 
         dataset_json = 'raw_data/nnUNet_raw_data/{task}/dataset.json'
+    group: 'preproc'
     script: 'create_json.py' 
      
  
@@ -81,6 +88,10 @@ rule plan_preprocess:
         task_num = lambda wildcards: re.search('Task([0-9]+)\w*',wildcards.task).group(1),
     output: 
         dataset_json = 'preprocessed/{task}/dataset.json'
+    group: 'preproc'
+    resources:
+        threads = 8,
+        mem_mb = 16000
     shell:
         'source {params.env} && source {params.venv} && '
         'nnUNet_plan_and_preprocess  -t {params.task_num} --verify_dataset_integrity'
@@ -103,11 +114,12 @@ rule train_fold:
         final_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_final_checkpoint.model',
         latest_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_latest.model',
         best_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_best.model'
+    threads: 16
     resources:
         gpus = 1,
-        threads = 16,
         mem_mb = 32000,
         time = 1440,
+    group: 'train'
     shell:
         'source {params.env} && source {params.venv} && '
         'rsync -av preprocessed $TMPDIR && '
@@ -127,11 +139,12 @@ rule predict_test_subj_with_latest:
         venv = '../venv/bin/activate',
     output:
         testing_imgs = expand('raw_data/nnUNet_predictions/{arch}/{task}/{trainer}__nnUNetPlansv2.1/{checkpoint}/hcp_{subjid}{hemi}.nii.gz',subjid=testing_subjids, hemi=hemis, allow_missing=True),
+    threads: 8 
     resources:
         gpus = 1,
-        threads = 8,
         mem_mb = 32000,
         time = 30,
+    group: 'inference'
     shell:
         'source {params.env} && source {params.venv} && '
         'nnUNet_predict  -chk {wildcards.checkpoint}  -i {params.in_folder} -o {params.out_folder} -t {wildcards.task}'
