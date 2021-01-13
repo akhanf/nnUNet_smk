@@ -38,18 +38,24 @@ rule all_train:
        
 
 rule resample_training_img:
-    input: 'trainingdata_v0.4/hcp_{subjid}_hemi-{hemi}_img.nii.gz'
+    input: config['in_image']
+    params:
+        resample_res = config['out_resolution']
     output: 'raw_data/nnUNet_raw_data/{task}/imagesTr/hcp_{subjid}{hemi}_0000.nii.gz'
     shell: 'c3d  {input} -resample 64x128x64 -o {output}'
 
 rule resample_testing_img:
     input: config['in_image']
+    params:
+        resample_res = config['out_resolution']
     output: 'raw_data/nnUNet_raw_data/{task}/imagesTs/hcp_{subjid}{hemi}_0000.nii.gz'
     shell: 'c3d  {input} -resample 64x128x64 -o {output}'
 
 
 rule resample_training_lbl:
-    input: 'trainingdata_v0.4/hcp_{subjid}_hemi-{hemi}_lbl.nii.gz'
+    input: config['in_label']
+    params:
+        resample_res = config['out_resolution']
     output: 'raw_data/nnUNet_raw_data/{task}/labelsTr/hcp_{subjid}{hemi}.nii.gz'
     shell: 'c3d {input} -interpolation NearestNeighbor -resample 64x128x64 -o {output}'
 
