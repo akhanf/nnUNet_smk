@@ -44,7 +44,7 @@ rule resample_training_img:
     output: 'raw_data/nnUNet_raw_data/{task}/imagesTr/hcp_{subjid}{hemi}_0000.nii.gz'
     threads: 32 #to make it serial on a node
     group: 'preproc'
-    shell: 'c3d  {input} -resample 64x128x64 -o {output}'
+    shell: 'c3d  {input} -resample {params.resample_res} -o {output}'
 
 rule resample_testing_img:
     input: config['in_image']
@@ -53,7 +53,7 @@ rule resample_testing_img:
     output: 'raw_data/nnUNet_raw_data/{task}/imagesTs/hcp_{subjid}{hemi}_0000.nii.gz'
     group: 'preproc'
     threads: 32 #to make it serial on a node
-    shell: 'c3d  {input} -resample 64x128x64 -o {output}'
+    shell: 'c3d  {input} -resample {params.resample_res} -o {output}'
 
 
 rule resample_training_lbl:
@@ -63,7 +63,7 @@ rule resample_training_lbl:
     output: 'raw_data/nnUNet_raw_data/{task}/labelsTr/hcp_{subjid}{hemi}.nii.gz'
     group: 'preproc'
     threads: 32 #to make it serial on a node
-    shell: 'c3d {input} -interpolation NearestNeighbor -resample 64x128x64 -o {output}'
+    shell: 'c3d {input} -interpolation NearestNeighbor -resample {params.resample_res} -o {output}'
 
 
 rule create_dataset_json:
