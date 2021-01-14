@@ -7,7 +7,7 @@ Lsubjids, = glob_wildcards(config['in_image'].format(hemi='L',subjid='{subjid}')
 Rsubjids, = glob_wildcards(config['in_image'].format(hemi='R',subjid='{subjid}'))
 
 #only take subjects that have both left and right (to make it easier, and balanced)
-subjids = set(Lsubjids).intersection(set(Rsubjids))
+subjids = sorted(list(set(Lsubjids).intersection(set(Rsubjids))))
 print(f'number of subjects with both left and right: {len(subjids)}')
 
 #do 80/20 split of training/test
@@ -25,6 +25,10 @@ print(f'number of test subjects: {len(testing_subjids)}')
 
 
 localrules: resample_training_img,resample_training_lbl,plan_preprocess,create_dataset_json
+rule all_model_tar:
+    input:
+        model_tar = expand('trained_model.{arch}.{task}.{trainer}.{checkpoint}.tar',arch=config['architecture'], task=config['task'], trainer=config['trainer'],checkpoint=config['checkpoint'])
+
 
 rule all_predict:
     input:
@@ -111,9 +115,10 @@ rule train_fold:
         #add --continue_training option if a checkpoint exists
         checkpoint_opt = get_checkpoint_opt
     output:
-        final_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_final_checkpoint.model',
-        latest_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_latest.model',
-        best_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_best.model'
+        model_dir = directory('trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}'),
+        #final_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_final_checkpoint.model',
+        #latest_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_latest.model',
+        #best_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_best.model'
     threads: 16
     resources:
         gpus = 1,
@@ -126,11 +131,21 @@ rule train_fold:
         'nnUNet_train  {params.checkpoint_opt} {wildcards.arch} {wildcards.trainer} {wildcards.task} {wildcards.fold}'
 
 
+rule package_trained_model:
+    input:
+        latest_model = expand('trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/{checkpoint}.model',fold=range(5),allow_missing=True),
+        latest_model_pkl = expand('trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/{checkpoint}.model.pkl',fold=range(5),allow_missing=True),
+        plan = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/plans.pkl'
+    output:
+        model_tar = 'trained_model.{arch}.{task}.{trainer}.{checkpoint}.tar'
+    shell:
+        'tar -cvf {output} {input}'
 
 
 rule predict_test_subj_with_latest:
     input:
-        latest_model = expand('trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/{checkpoint}.model',fold=range(5),allow_missing=True),
+        in_training_folder = expand('trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}',fold=range(5),allow_missing=True),
+    #    latest_model = expand('trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/{checkpoint}.model',fold=range(5),allow_missing=True),
         testing_imgs = expand('raw_data/nnUNet_raw_data/{task}/imagesTs/hcp_{subjid}{hemi}_0000.nii.gz',subjid=testing_subjids, hemi=hemis, allow_missing=True),
     params:
         in_folder = 'raw_data/nnUNet_raw_data/{task}/imagesTs',
@@ -150,4 +165,5 @@ rule predict_test_subj_with_latest:
         'nnUNet_predict  -chk {wildcards.checkpoint}  -i {params.in_folder} -o {params.out_folder} -t {wildcards.task}'
 
    
+        
 
