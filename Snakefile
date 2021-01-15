@@ -25,6 +25,13 @@ print(f'number of test subjects: {len(testing_subjids)}')
 
 
 localrules: resample_training_img,resample_training_lbl,plan_preprocess,create_dataset_json
+
+
+rule all_train:
+    input:
+       expand('trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_final_checkpoint.model',fold=range(5), arch=config['architecture'], task=config['task'], trainer=config['trainer'])
+
+ 
 rule all_model_tar:
     input:
         model_tar = expand('trained_model.{arch}.{task}.{trainer}.{checkpoint}.tar',arch=config['architecture'], task=config['task'], trainer=config['trainer'],checkpoint=config['checkpoint'])
@@ -35,11 +42,7 @@ rule all_predict:
         testing_imgs = expand('raw_data/nnUNet_predictions/{arch}/{task}/{trainer}__nnUNetPlansv2.1/{checkpoint}/hcp_{subjid}{hemi}.nii.gz',subjid=testing_subjids, hemi=hemis, arch=config['architecture'], task=config['task'], trainer=config['trainer'],checkpoint=config['checkpoint'],allow_missing=True),
  
 
-rule all_train:
-    input:
-       expand('trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_final_checkpoint.model',fold=range(5), arch=config['architecture'], task=config['task'], trainer=config['trainer'])
-
-       
+      
 
 rule resample_training_img:
     input: config['in_image']
@@ -116,13 +119,13 @@ rule train_fold:
         checkpoint_opt = get_checkpoint_opt
     output:
         model_dir = directory('trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}'),
-        #final_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_final_checkpoint.model',
-        #latest_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_latest.model',
-        #best_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_best.model'
+        final_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_final_checkpoint.model',
+        latest_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_latest.model',
+        best_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_best.model'
     threads: 16
     resources:
         gpus = 1,
-        mem_mb = 32000,
+        mem_mb = 64000,
         time = 1440,
     group: 'train'
     shell:
