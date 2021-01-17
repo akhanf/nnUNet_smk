@@ -2,10 +2,20 @@
 in_image: '/scratch/akhanf/1_dev/nnunet/test_hcp/trainingdata_v0.4/hcp_{subjid}_hemi-{hemi}_img.nii.gz'
 in_label: '/scratch/akhanf/1_dev/nnunet/test_hcp/trainingdata_v0.4/hcp_{subjid}_hemi-{hemi}_lbl.nii.gz'
 
-#out_resolution: '64x128x64'
 out_resolution: '128x256x128'
 
 task: Task100_hcp1200hippT2w #must be Task###_name where ### is >= 100
 trainer: nnUNetTrainerV2
 architecture: 3d_fullres
 checkpoint: model_best
+
+nnunet_env:
+  nnUNet_raw_data_base: 'raw_data'
+  nnUNet_preprocessed: 'preprocessed'
+  RESULTS_FOLDER: 'trained_models'
+
+nnunet_env_tmp:
+  nnUNet_raw_data_base: 'raw_data'
+  nnUNet_preprocessed: '$TMPDIR/preprocessed'
+  RESULTS_FOLDER: 'trained_models'
+

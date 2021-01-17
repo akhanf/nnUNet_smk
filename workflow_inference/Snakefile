@@ -1,0 +1,88 @@
+configfile: 'config.yml'
+
+
+#get the wildcard zip lists to index all the inputs
+globbed_wildcards = glob_wildcards(config['in_img'])
+wildcard_names = globbed_wildcards._fields
+subj_zip_list = { name : globbed_wildcards[idx] for idx,name in enumerate(wildcard_names)}
+
+
+
+
+rule all:
+    input: expand(config['out_lbl'], zip, **subj_zip_list)
+
+rule extract_model:
+    input: config['in_model_tar']
+    output: directory(config['temp_model_dir'])
+    shell: 'mkdir -p {output} && tar -xvf {input} -C {output}'
+
+
+rule copy_img_to_temp:
+    input: config['in_img']
+    params:
+        temp_dir = config['temp_img_dir']
+    output: 
+        temp_img = os.path.join(config['temp_img_dir'],config['temp_img'])
+    threads: 32
+    shell: 'mkdir -p {params.temp_dir} &&  cp {input} {output.temp_img}'
+
+def parse_task_from_tar (wildcards, input):
+    import re
+    match = re.search('Task[0-9]{3}_[a-zA-Z0-9]+',input.model_tar)
+    if match:
+        task = match.group(0)
+    else:
+        raise ValueError('cannot parse Task from model tar')
+
+
+def parse_chkpnt_from_tar (wildcards, input):
+    import re
+    match = re.search('^.*\.(\w+)\.tar',input.model_tar)
+    if match:
+        chkpnt = match.group(1)
+    else:
+        raise ValueError('cannot parse chkpnt from model tar')
+    return chkpnt
+
+def parse_task_from_tar (wildcards, input):
+    import re
+    match = re.search('Task[0-9]{3}_[a-zA-Z0-9]+',input.model_tar)
+    if match:
+        task = match.group(0)
+    else:
+        raise ValueError('cannot parse Task from model tar')
+    return task
+
+
+
+rule run_inference:
+    input: 
+        in_img = expand(os.path.join(config['temp_img_dir'],config['temp_img']), zip, **subj_zip_list),
+        model_dir = config['temp_model_dir'],
+        model_tar = config['in_model_tar']
+    params:
+        in_folder = config['temp_img_dir'],
+        out_folder = config['temp_lbl_dir'],
+        task = parse_task_from_tar,
+        chkpnt = parse_chkpnt_from_tar,
+    output: 
+        tmp_lbl = expand(os.path.join(config['temp_lbl_dir'],config['temp_lbl']),  zip, **subj_zip_list)
+    threads: 8 
+    resources:
+        gpus = 1,
+        mem_mb = 64000,
+        time = 30,
+    shell: 'export RESULTS_FOLDER={input.model_dir} &&'
+           'export nnUNet_n_proc_DA={threads} &&'
+           'nnUNet_predict -i {params.in_folder} -o {params.out_folder} -t {params.task} -chk {params.chkpnt}' # --disable_tta'
+
+rule copy_temp_to_lbl:
+    input:
+        tmp_lbl = os.path.join(config['temp_lbl_dir'],config['temp_lbl'])
+    output:
+        lbl = config['out_lbl']
+    threads: 32
+    shell: 'cp {input} {output}'
+
+
