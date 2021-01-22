@@ -5,8 +5,8 @@ with open(snakemake.input.template_json) as f:
     dataset = json.load(f)
 
 dataset['training'] = [{'image': img, 'label': lbl} for img,lbl in zip(snakemake.params.training_imgs_nosuffix,snakemake.input.training_lbls)]
-    
 
+dataset['modality'] = [{name: num} for name,num in zip(snakemake.modality_names,snakemake.modality_nums)]
 
 dataset['numTraining'] = len(dataset['training'])
 
