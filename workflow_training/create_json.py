@@ -8,12 +8,16 @@ dataset['training'] = [{'image': img, 'label': lbl} for img,lbl in zip(
     snakemake.input.training_imgs,
     snakemake.input.training_lbls)]
 
-dataset['modality'] = [{num: name} for num,name in zip(
-    [str(i).zfill(4) for i in range(0,len(snakemake.params.modalities))],
-    snakemake.params.modalities)]
+t = snakemake.params.modalities
+dataset['modality'] = {x: y for x,y in zip(range(len(t)),t)}
 
 dataset['numTraining'] = len(dataset['training'])
 
 #write modified json
 with open(snakemake.output.dataset_json, 'w') as f:
     json.dump(dataset, f, indent=4)
+
+# import json
+# with open('template.json') as f:
+#     dataset = json.load(f)
+# t = ['T1w', 'T2w']
