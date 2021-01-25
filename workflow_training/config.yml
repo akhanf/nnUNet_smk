@@ -1,16 +1,18 @@
 
 in_image:
- - '/scratch/jdekrake/Hippocampal_AutoTop_tests/trainingdata_HCP1200_modalities-all_v4reg/{subjid}_hemi-{hemi}_T2w.nii.gz'
  - '/scratch/jdekrake/Hippocampal_AutoTop_tests/trainingdata_HCP1200_modalities-all_v4reg/{subjid}_hemi-{hemi}_T1w.nii.gz'
+ - '/scratch/jdekrake/Hippocampal_AutoTop_tests/trainingdata_HCP1200_modalities-all_v4reg/{subjid}_hemi-{hemi}_T2w.nii.gz'
+ - '/scratch/jdekrake/Hippocampal_AutoTop_tests/trainingdata_HCP1200_modalities-all_v4reg/{subjid}_hemi-{hemi}_b1000.nii.gz'
 in_label: '/scratch/jdekrake/Hippocampal_AutoTop_tests/trainingdata_HCP1200_modalities-all_v4reg/{subjid}_hemi-{hemi}_lbl.nii.gz'
 
 modalities:
- - 'T2w'
  - 'T1w'
+ - 'T2w'
+ - 'b1000'
 
 out_resolution: '128x256x128'
 
-task: Task102_hcp1200trimodal #must be Task###_name where ### is >= 100
+task: Task105_hcp1200_trimodal #must be Task###_name where ### is >= 100
 trainer: nnUNetTrainerV2
 architecture: 3d_fullres
 checkpoint: model_best
