@@ -1,8 +1,12 @@
 
-in_image: 
+in_image:
  - '/scratch/jdekrake/Hippocampal_AutoTop_tests/trainingdata_HCP1200_modalities-all_v4reg/{subjid}_hemi-{hemi}_T2w.nii.gz'
  - '/scratch/jdekrake/Hippocampal_AutoTop_tests/trainingdata_HCP1200_modalities-all_v4reg/{subjid}_hemi-{hemi}_T1w.nii.gz'
 in_label: '/scratch/jdekrake/Hippocampal_AutoTop_tests/trainingdata_HCP1200_modalities-all_v4reg/{subjid}_hemi-{hemi}_lbl.nii.gz'
+
+modalities:
+ - 'T2w'
+ - 'T1w'
 
 out_resolution: '128x256x128'
 

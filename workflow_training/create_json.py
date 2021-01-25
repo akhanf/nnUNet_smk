@@ -4,9 +4,13 @@ import json
 with open(snakemake.input.template_json) as f:
     dataset = json.load(f)
 
-dataset['training'] = [{'image': img, 'label': lbl} for img,lbl in zip(snakemake.params.training_imgs_nosuffix,snakemake.input.training_lbls)]
+dataset['training'] = [{'image': img, 'label': lbl} for img,lbl in zip(
+    snakemake.input.training_imgs,
+    snakemake.input.training_lbls)]
 
-dataset['modality'] = [{name: num} for name,num in zip(snakemake.modality_names,snakemake.modality_nums)]
+dataset['modality'] = [{name: num} for name,num in zip(
+    snakemake.params.modalities,
+    [str(i).zfill(4) for i in range(0,len(snakemake.params.modalities))])]
 
 dataset['numTraining'] = len(dataset['training'])
 
