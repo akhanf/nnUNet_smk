@@ -5,6 +5,8 @@ in_image:
  - '/scratch/jdekrake/Hippocampal_AutoTop_tests/trainingdata_HCP1200_modalities-all_v4reg/{subjid}_hemi-{hemi}_b1000.nii.gz'
 in_label: '/scratch/jdekrake/Hippocampal_AutoTop_tests/trainingdata_HCP1200_modalities-all_v4reg/{subjid}_hemi-{hemi}_lbl.nii.gz'
 
+trainin_sub_list: 'training.txt' #for using a predetermined train/test split
+
 modalities:
  - 'T1w'
  - 'T2w'

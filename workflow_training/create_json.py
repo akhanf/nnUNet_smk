@@ -5,7 +5,7 @@ with open(snakemake.input.template_json) as f:
     dataset = json.load(f)
 
 dataset['training'] = [{'image': img, 'label': lbl} for img,lbl in zip(
-    snakemake.input.training_imgs,
+    snakemake.params.training_imgs_nosuffix,
     snakemake.input.training_lbls)]
 
 t = snakemake.params.modalities
