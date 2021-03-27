@@ -1,18 +1,21 @@
-# This workflow is for training a model (on 80% of the dataset, with 5-fold cross validation), and also performs testing (inference) on the other 20%  
+# This workflow is for training a model (on 80% of the dataset, with 5-fold cross validation), and also performs testing (inference) on the other 20%
 #  Use the all_model_tar rule to save the model as a tar file for use on new datasets (using workflow_inference)
 
 #snakefile to re-factor input data into format that nnUNet likes
 configfile: 'config.yml'
 
 #get list of all subj ids
-Lsubjids, = glob_wildcards(config['in_image'].format(hemi='L',subjid='{subjid}'))
-Rsubjids, = glob_wildcards(config['in_image'].format(hemi='R',subjid='{subjid}'))
+s,h = glob_wildcards(config['in_image'][0])
+subjids = list(set(s))
+hemis = list(set(h))
+modalities = config['modalities']
+print(f'subjects: {subjids}')
+print(f'hemis: {hemis}')
+print(f'modalities: {modalities}')
+# TODO: get subset of subjids with all hemis and all modalities
 
-#only take subjects that have both left and right (to make it easier to deal with, and balanced)
-subjids = sorted(list(set(Lsubjids).intersection(set(Rsubjids))))
-print(f'number of subjects with both left and right: {len(subjids)}')
-
-#do 80/20 split of training/test
+# do random 80/20 split of training/test
+print(f'Generating new random test/training split')
 import random
 random.seed(0)
 num_training = int(0.8 * len(subjids))
@@ -20,36 +23,40 @@ shuffle_subjids = random.sample(subjids,k=len(subjids))
 training_subjids = shuffle_subjids[:num_training]
 testing_subjids = shuffle_subjids[num_training:]
 
-
-hemis=['L','R']
+# OR load a predetermined train/test split
+print(f'using test/training split from {config["trainin_sub_list"]}')
+f = open(config['trainin_sub_list'])
+training_subjids = f.read().splitlines()
+testing_subjids = list(set(subjids) - set(training_subjids))
 
 print(f'number of training subjects: {len(training_subjids)}')
 print(f'number of test subjects: {len(testing_subjids)}')
 
-localrules: resample_training_img,resample_training_lbl,plan_preprocess,create_dataset_json
+localrules: resample_training_img, resample_testing_img, resample_training_lbl, plan_preprocess, create_dataset_json
 
 rule all_train:
     input:
-       expand('trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/{checkpoint}.model',fold=range(5), arch=config['architecture'], task=config['task'],checkpoint=config['checkpoint'], trainer=config['trainer'])
+       expand('trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/{checkpoint}.model',fold=range(5),arch=config['architecture'], task=config['task'],checkpoint=config['checkpoint'],trainer=config['trainer'])
 
- 
 rule all_model_tar:
     """Target rule to package trained model into a tar file"""
     input:
-        model_tar = expand('trained_model.{arch}.{task}.{trainer}.{checkpoint}.tar',arch=config['architecture'], task=config['task'], trainer=config['trainer'],checkpoint=config['checkpoint'])
-
+        model_tar = expand('trained_model.{arch}.{task}.{trainer}.{checkpoint}.tar',arch=config['architecture'],task=config['task'], trainer=config['trainer'],checkpoint=config['checkpoint'])
 
 rule all_predict:
     input:
-        testing_imgs = expand('raw_data/nnUNet_predictions/{arch}/{task}/{trainer}__nnUNetPlansv2.1/{checkpoint}/hcp_{subjid}{hemi}.nii.gz',subjid=testing_subjids, hemi=hemis, arch=config['architecture'], task=config['task'], trainer=config['trainer'],checkpoint=config['checkpoint'],allow_missing=True),
- 
-     
+        predicted_lbls = expand('raw_data/nnUNet_predictions/{arch}/{task}/{trainer}__nnUNetPlansv2.1/{checkpoint}/{subjid}{hemi}.nii.gz',
+        subjid=testing_subjids,hemi=hemis,arch=config['architecture'], task=config['task'],trainer=config['trainer'],checkpoint=config['checkpoint'],allow_missing=True)
+
+
+def get_input_from_index(wildcards):
+    return config['in_image'][int(wildcards.index)]
 
 rule resample_training_img:
-    input: config['in_image']
+    input:  get_input_from_index
     params:
-        resample_res = config['out_resolution']
-    output: 'raw_data/nnUNet_raw_data/{task}/imagesTr/hcp_{subjid}{hemi}_0000.nii.gz'
+        resample_res = config['out_resolution'],
+    output: 'raw_data/nnUNet_raw_data/{task}/imagesTr/{subjid}{hemi}_{index}.nii.gz'
     threads: 32 #to make it serial on a node
     group: 'preproc'
     shell: 'c3d  {input} -resample {params.resample_res} -o {output}'
@@ -57,53 +64,54 @@ rule resample_training_img:
 rule resample_testing_img:
     input: config['in_image']
     params:
-        resample_res = config['out_resolution']
-    output: 'raw_data/nnUNet_raw_data/{task}/imagesTs/hcp_{subjid}{hemi}_0000.nii.gz'
+        resample_res = config['out_resolution'],
+    output: 'raw_data/nnUNet_raw_data/{task}/imagesTs/{subjid}{hemi}_{index}.nii.gz'
     group: 'preproc'
     threads: 32 #to make it serial on a node
     shell: 'c3d  {input} -resample {params.resample_res} -o {output}'
-
 
 rule resample_training_lbl:
     input: config['in_label']
     params:
         resample_res = config['out_resolution']
-    output: 'raw_data/nnUNet_raw_data/{task}/labelsTr/hcp_{subjid}{hemi}.nii.gz'
+    output: 'raw_data/nnUNet_raw_data/{task}/labelsTr/{subjid}{hemi}.nii.gz'
     group: 'preproc'
     threads: 32 #to make it serial on a node
     shell: 'c3d {input} -interpolation NearestNeighbor -resample {params.resample_res} -o {output}'
 
 
 rule create_dataset_json:
-    input: 
-        training_imgs = expand('raw_data/nnUNet_raw_data/{task}/imagesTr/hcp_{subjid}{hemi}_0000.nii.gz',subjid=training_subjids, hemi=hemis, allow_missing=True),
-        training_lbls = expand('raw_data/nnUNet_raw_data/{task}/labelsTr/hcp_{subjid}{hemi}.nii.gz',subjid=training_subjids, hemi=hemis, allow_missing=True),
-        template_json = 'template.json'
+    input:
+        training_imgs = expand('raw_data/nnUNet_raw_data/{task}/imagesTr/{subjid}{hemi}_{index}.nii.gz',task=config['task'],subjid=training_subjids, hemi=hemis, index=[str(i).zfill(4) for i in range(0,len(config['in_image']))] , allow_missing=True),
+        training_lbls = expand('raw_data/nnUNet_raw_data/{task}/labelsTr/{subjid}{hemi}.nii.gz',task=config['task'],subjid=training_subjids, hemi=hemis, allow_missing=True),
+        template_json = 'template.json',
     params:
-        training_imgs_nosuffix = expand('raw_data/nnUNet_raw_data/{task}/imagesTr/hcp_{subjid}{hemi}.nii.gz',subjid=training_subjids, hemi=hemis, allow_missing=True),
-    output: 
+        modalities = config['modalities'],
+        training_imgs_nosuffix = expand('raw_data/nnUNet_raw_data/{task}/imagesTr/{subjid}{hemi}.nii.gz',task=config['task'],subjid=training_subjids, hemi=hemis, allow_missing=True),
+    output:
         dataset_json = 'raw_data/nnUNet_raw_data/{task}/dataset.json'
     group: 'preproc'
-    script: 'create_json.py' 
-    
+    script: 'create_json.py'
+
 def get_nnunet_env(wildcards):
      return ' && '.join([f'export {key}={val}' for (key,val) in config['nnunet_env'].items()])
- 
+
 def get_nnunet_env_tmp(wildcards):
      return ' && '.join([f'export {key}={val}' for (key,val) in config['nnunet_env_tmp'].items()])
- 
+
 rule plan_preprocess:
-    input: 
+    input:
         dataset_json = 'raw_data/nnUNet_raw_data/{task}/dataset.json'
     params:
         nnunet_env_cmd = get_nnunet_env,
         task_num = lambda wildcards: re.search('Task([0-9]+)\w*',wildcards.task).group(1),
-    output: 
+    output:
         dataset_json = 'preprocessed/{task}/dataset.json'
     group: 'preproc'
     resources:
         threads = 8,
-        mem_mb = 16000
+        mem_mb = 32000,
+        time = 180,
     shell:
         '{params.nnunet_env_cmd} && '
         'nnUNet_plan_and_preprocess  -t {params.task_num} --verify_dataset_integrity'
@@ -112,14 +120,14 @@ def get_checkpoint_opt(wildcards, output):
     if os.path.exists(output.latest_model):
         return '--continue_training'
     else:
-        return '' 
-      
+        return ''
+
 rule train_fold:
     input:
         dataset_json = 'preprocessed/{task}/dataset.json'
     params:
         nnunet_env_cmd = get_nnunet_env_tmp,
-        rsync_to_tmp = f"rsync -av {config['nnunet_env']['nnUNet_preprocessed']} $TMPDIR",
+        rsync_to_tmp = f"rsync -av {config['nnunet_env']['nnUNet_preprocessed'] + '/' + config['task']} $TMPDIR/{config['nnunet_env']['nnUNet_preprocessed']}",
         #add --continue_training option if a checkpoint exists
         checkpoint_opt = get_checkpoint_opt
     output:
@@ -127,10 +135,10 @@ rule train_fold:
 #        final_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_final_checkpoint.model',
         latest_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_latest.model',
         best_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_best.model'
-    threads: 16
+    threads: 32
     resources:
         gpus = 1,
-        mem_mb = 64000,
+        mem_mb = 182000,
         time = 1440,
     group: 'train'
     shell:
@@ -158,23 +166,19 @@ rule predict_test_subj:
     input:
         in_training_folder = expand('trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}',fold=range(5),allow_missing=True),
         latest_model = expand('trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/{checkpoint}.model',fold=range(5),allow_missing=True),
-        testing_imgs = expand('raw_data/nnUNet_raw_data/{task}/imagesTs/hcp_{subjid}{hemi}_0000.nii.gz',subjid=testing_subjids, hemi=hemis, allow_missing=True),
+        testing_imgs = expand('raw_data/nnUNet_raw_data/{task}/imagesTs/{subjid}{hemi}_{index}.nii.gz',subjid=testing_subjids, hemi=hemis, index=[str(i).zfill(4) for i in range(0,len(config['in_image']))], allow_missing=True),
     params:
         in_folder = 'raw_data/nnUNet_raw_data/{task}/imagesTs',
         out_folder = 'raw_data/nnUNet_predictions/{arch}/{task}/{trainer}__nnUNetPlansv2.1/{checkpoint}',
         nnunet_env_cmd = get_nnunet_env,
     output:
-        testing_imgs = expand('raw_data/nnUNet_predictions/{arch}/{task}/{trainer}__nnUNetPlansv2.1/{checkpoint}/hcp_{subjid}{hemi}.nii.gz',subjid=testing_subjids, hemi=hemis, allow_missing=True),
-    threads: 8 
+        predicted_lbls = expand('raw_data/nnUNet_predictions/{arch}/{task}/{trainer}__nnUNetPlansv2.1/{checkpoint}/{subjid}{hemi}.nii.gz',subjid=testing_subjids, hemi=hemis, allow_missing=True),
+    threads: 8
     resources:
         gpus = 1,
-        mem_mb = 32000,
-        time = 30,
+        mem_mb = 64000,
+        time = 300,
     group: 'inference'
     shell:
         '{params.nnunet_env_cmd} && '
         'nnUNet_predict  -chk {wildcards.checkpoint}  -i {params.in_folder} -o {params.out_folder} -t {wildcards.task}'
-
-   
-        
-
