@@ -1,0 +1,6 @@
+workflow_training/.snakemake/
+workflow_training/jobs/
+workflow_training/preprocessed/
+workflow_training/trained_models/
+workflow_training/raw_data/
+workflow_training/test*

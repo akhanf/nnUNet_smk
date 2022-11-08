@@ -1,10 +1,10 @@
 
-in_image: '/scratch/akhanf/1_dev/nnunet/test_hcp/trainingdata_v0.4/hcp_{subjid}_hemi-{hemi}_img.nii.gz'
-in_label: '/scratch/akhanf/1_dev/nnunet/test_hcp/trainingdata_v0.4/hcp_{subjid}_hemi-{hemi}_lbl.nii.gz'
+in_image: '/scratch/jdekrake/synth_hippo/Mixed_generated/image_{subjid}.nii.gz'
+in_label: '/scratch/jdekrake/synth_hippo/Mixed_generated/labels_{subjid}.nii.gz'
 
 out_resolution: '128x256x128'
 
-task: Task100_hcp1200hippT2w #must be Task###_name where ### is >= 100
+task: Task102_synsegGenDetailed #must be Task###_name where ### is >= 100
 trainer: nnUNetTrainerV2
 architecture: 3d_fullres
 checkpoint: model_best
@@ -16,6 +16,6 @@ nnunet_env:
 
 nnunet_env_tmp:
   nnUNet_raw_data_base: 'raw_data'
-  nnUNet_preprocessed: '$TMPDIR/preprocessed'
+  nnUNet_preprocessed: '$SLURM_TMPDIR/preprocessed'
   RESULTS_FOLDER: 'trained_models'
 

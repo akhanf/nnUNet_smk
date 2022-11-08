@@ -1,21 +1,21 @@
 #----- input parameters---------
 
 # neural net model
-in_model_tar: /scratch/akhanf/1_dev/nnunet/test_hcp/trained_model.3d_fullres.Task100_hcp1200hippT2w.nnUNetTrainerV2.model_best.tar
+in_model_tar: /scratch/jdekrake/synth_hippo/nnUNet_smk/workflow_training/trained_model.3d_fullres.Task100_synsegGenMixed.nnUNetTrainerV2__nnUNetPlansv2.1.tar
 
 # you must have the same {wildcards} in all the files below: 
 
 # input image to segment:
-in_img: /scratch/akhanf/1_dev/nnunet/test_hcp/trainingdata_v0.4/hcp_{subjid}_hemi-{hemi}_img.nii.gz
+in_img: /scratch/jdekrake/synth_hippo/AHEAD/sub-{subjid}_hemi-{hemi}_{mod}.nii.gz
 
 # relative to this dir
-out_lbl: 'testing_lbl/sub-{subjid}/sub-{subjid}_hemi-{hemi}_desc-nnunet_dseg.nii.gz'
+out_lbl: 'testing_lbl/sub-{subjid}_hemi-{hemi}_{mod}_desc-nnunet_dseg.nii.gz'
 
 #relative to temp folder; MUST be of form:  {prefix}_0000.nii.gz
-temp_img: '{subjid}_{hemi}_0000.nii.gz'
+temp_img: '{subjid}_{hemi}_{mod}_0000.nii.gz'
 
 #relative to temp folder; MUST be of form:  {prefix}.nii.gz 
-temp_lbl: '{subjid}_{hemi}.nii.gz'
+temp_lbl: '{subjid}_{hemi}_{mod}.nii.gz'
 
 #-------------------------------
 
