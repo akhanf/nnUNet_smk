@@ -146,8 +146,7 @@ rule package_trained_model:
 
 rule predict_test_subj:
     input:
-        in_training_folder = expand('trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}',fold=range(5),allow_missing=True),
-        latest_model_pkl = expand('trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/{checkpoint}.model.pkl',fold=range(5),allow_missing=True),
+        final_model = 'trained_models/nnUNet/{arch}/{task}/{trainer}__nnUNetPlansv2.1/fold_{fold}/model_final_checkpoint.model',
         testing_imgs = expand('raw_data/nnUNet_raw_data/{task}/imagesTs/hcp_{subjid}_0000.nii.gz',subjid=testing_subjids, allow_missing=True),
     params:
         in_folder = 'raw_data/nnUNet_raw_data/{task}/imagesTs',
